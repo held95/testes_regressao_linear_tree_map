@@ -1,23 +1,21 @@
-# 🛒 Painel Interativo de Vendas Avançado
+# 🛒 Painel de Previsão de Vendas
 
-Este projeto é um **dashboard interativo de vendas** desenvolvido em **Streamlit**, com previsões de quantidade vendida, alertas de estoque, ranking de produtos e uma "IA narrativa" que responde perguntas sobre vendas.
+Este projeto é um **dashboard interativo de previsão de vendas** desenvolvido em **Streamlit**, utilizando modelos de regressão para estimar a quantidade de produtos vendidos, ranking de produtos e gráficos interativos, incluindo treemap de previsão futura.
 
 ---
 
 ## 🚀 Funcionalidades
 
 - Previsão de quantidade vendida usando **Linear Regression** ou **Decision Tree**.
-- Gráficos interativos de preço vs previsão.
-- Cálculo de preço ideal para maximizar vendas.
+- Gráfico interativo de **preço vs previsão**.
 - Ranking de produtos por quantidade prevista.
-- Previsão futura de vendas para os próximos 30 dias.
-- Perguntas inteligentes sobre vendas (ex.: produto mais vendido, tamanho mais vendido, média de vendas).
+- Previsão futura total por produto em **treemap**.
 
 ---
 
 ## 🛠 Instalação
 
-1. Clone este repositório:
+1. Clone o repositório:
 
 ```bash
 git clone https://github.com/seuusuario/nome-do-repositorio.git
