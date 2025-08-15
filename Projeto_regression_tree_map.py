@@ -9,7 +9,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
 # ===========================
-# 1️⃣ Base de dados ampliada (70 produtos)
+# Base de dados ampliada
 # ===========================
 np.random.seed(42)
 
@@ -31,9 +31,9 @@ dias = 30
 estoque_critico = 5
 
 # ===========================
-# 2️⃣ Interface Streamlit
+# Interface Streamlit
 # ===========================
-st.title("🛒 Painel Interativo de Vendas Avançado")
+st.title("🛒 Painel de Previsão de Vendas")
 
 tipo = st.selectbox("Tipo de produto", dados['tipo'].unique())
 preco = st.slider("Preço", 10, 300, 50, step=5)
@@ -42,13 +42,18 @@ tamanho = st.selectbox("Tamanho", dados['tamanho'].unique())
 modelo_selecionado = st.selectbox("Modelo", ['Linear Regression', 'Decision Tree'])
 
 if st.button("Prever"):
+    # Entrada do usuário
     entrada = pd.DataFrame({'tipo':[tipo],'preco':[preco],'clima':[clima],'tamanho':[tamanho]})
+    
+    # Transformador
     colunas_categoricas = ['tipo', 'clima', 'tamanho']
     colunas_numericas = ['preco']
     transformador = ColumnTransformer([
         ('cat', OneHotEncoder(), colunas_categoricas),
         ('num', 'passthrough', colunas_numericas)
     ])
+    
+    # Modelo
     regressor = LinearRegression() if modelo_selecionado == 'Linear Regression' else DecisionTreeRegressor(random_state=42)
     modelo = Pipeline([('transformacao', transformador), ('regressor', regressor)])
     
@@ -56,22 +61,11 @@ if st.button("Prever"):
     y = dados['quantidade']
     modelo.fit(X, y)
     
+    # Previsão
     previsao = modelo.predict(entrada)[0]
-    media_hist = dados[dados['tipo'] == tipo]['quantidade'].mean()
-    percentual = (previsao - media_hist) / media_hist * 100
-
-    st.subheader("📊 Relatório de Previsão")
-    st.write(f"Produto: {tipo}")
-    st.write(f"Preço atual: R$ {preco}")
-    st.write(f"Clima: {clima}")
-    st.write(f"Tamanho: {tamanho}")
-    st.write(f"Quantidade Prevista: {previsao:.1f}")
-    st.write(f"Média histórica: {media_hist:.1f}")
-    st.write(f"Variação esperada: {percentual:.1f}%")
-
-    if previsao < estoque_critico:
-        st.warning(f"⚠️ Estoque crítico! Apenas {previsao:.1f} unidades previstas.")
-
+    st.subheader(f"Quantidade prevista: {previsao:.1f} unidades")
+    
+    # Gráfico preço vs previsão
     precos = np.linspace(10, 300, 50)
     previsoes_precos = [modelo.predict(pd.DataFrame({'tipo':[tipo],'preco':[p],
                                                     'clima':[clima],'tamanho':[tamanho]}))[0]
@@ -85,79 +79,33 @@ if st.button("Prever"):
     ax.grid(True)
     ax.legend()
     st.pyplot(fig)
-
-    preco_ideal = precos[np.argmax(previsoes_precos)]
-    st.success(f"💰 Preço sugerido para maximizar vendas: R$ {preco_ideal:.1f}")
-
+    
+    # Ranking de produtos
     ranking = []
     for t in dados['tipo'].unique():
         df_tmp = pd.DataFrame({'tipo':[t],'preco':[50],'clima':[clima],'tamanho':['M']})
         qtd = modelo.predict(df_tmp)[0]
         ranking.append((t, qtd))
     ranking.sort(key=lambda x: x[1], reverse=True)
-    st.subheader("🏆 Ranking de produtos para o clima escolhido")
+    
+    st.subheader("🏆 Ranking de produtos")
     for idx, (prod, qtd) in enumerate(ranking,1):
-        st.write(f"{idx}. {prod}: {qtd:.1f} unidades previstas")
-
-    previsao_futura = pd.DataFrame()
+        st.write(f"{idx}. {prod}: {qtd:.1f} unidades")
+    
+    # Previsão futura em gráfico de treemap-like
+    import squarify  # pip install squarify
+    previsao_futura = []
     for t in dados['tipo'].unique():
         df_tmp = pd.DataFrame({'tipo':[t]*dias,
                                'preco':[50]*dias,
                                'clima':[clima]*dias,
                                'tamanho':['M']*dias})
-        df_tmp['dia'] = range(1,dias+1)
         df_tmp['previsao'] = modelo.predict(df_tmp[['tipo','preco','clima','tamanho']])
-        previsao_futura = pd.concat([previsao_futura, df_tmp])
+        previsao_futura.append(df_tmp.groupby('tipo')['previsao'].sum())
+    previsao_futura = pd.concat(previsao_futura)
     
-    fig2, ax2 = plt.subplots(figsize=(8,5))
-    for t in dados['tipo'].unique():
-        df_plot = previsao_futura[previsao_futura['tipo']==t]
-        ax2.plot(df_plot['dia'], df_plot['previsao'], label=t, linewidth=2)
-    ax2.set_xlabel("Dia")
-    ax2.set_ylabel("Quantidade Prevista")
-    ax2.set_title(f"Previsão futura de vendas para os próximos {dias} dias")
-    ax2.legend()
-    ax2.grid(True)
+    st.subheader("📊 Previsão futura total por produto (Treemap)")
+    fig2, ax2 = plt.subplots(figsize=(10,5))
+    squarify.plot(sizes=previsao_futura.values, label=previsao_futura.index, alpha=0.8)
+    plt.axis('off')
     st.pyplot(fig2)
-
-st.subheader("💬 Perguntas Inteligentes sobre Vendas")
-pergunta = st.text_input("Digite sua pergunta sobre vendas")
-if st.button("Responder"):
-    df = dados.copy()
-    tipos = df['tipo'].unique()
-    climas = df['clima'].unique()
-    tamanhos = df['tamanho'].unique()
-
-    tipo_pergunta = [t for t in tipos if t in pergunta.lower()]
-    clima_pergunta = [c for c in climas if c in pergunta.lower()]
-    tamanho_pergunta = [t for t in tamanhos if t in pergunta.lower()]
-
-    df_filtro = df.copy()
-    if tipo_pergunta:
-        df_filtro = df_filtro[df_filtro['tipo'].isin(tipo_pergunta)]
-    if clima_pergunta:
-        df_filtro = df_filtro[df_filtro['clima'].isin(clima_pergunta)]
-    if tamanho_pergunta:
-        df_filtro = df_filtro[df_filtro['tamanho'].isin(tamanho_pergunta)]
-
-    if df_filtro.empty:
-        st.write("🧠 IA: Não encontrei dados para essa combinação.")
-    else:
-        resposta = "🧠 IA: "
-        if "tamanho mais vendido" in pergunta.lower():
-            tamanho_max = df_filtro.groupby('tamanho')['quantidade'].sum().idxmax()
-            qtd_max = df_filtro.groupby('tamanho')['quantidade'].sum().max()
-            resposta += f"O tamanho mais vendido é '{tamanho_max}' com {qtd_max} unidades."
-        elif "produto mais vendido" in pergunta.lower():
-            tipo_max = df_filtro.groupby('tipo')['quantidade'].sum().idxmax()
-            qtd_max = df_filtro.groupby('tipo')['quantidade'].sum().max()
-            resposta += f"O produto mais vendido é '{tipo_max}' com {qtd_max} unidades."
-        elif "quantidade média" in pergunta.lower():
-            media = df_filtro['quantidade'].mean()
-            resposta += f"A quantidade média vendida é {media:.1f} unidades."
-        else:
-            media = df_filtro['quantidade'].mean()
-            minimo = df_filtro['quantidade'].min()
-            maximo = df_filtro['quantidade'].max()
-            resposta += f"A quantidade média vendida é {media:.1f} (mín: {minimo}, máx: {maximo})."
-        st.write(resposta)
